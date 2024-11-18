@@ -19,6 +19,9 @@
 
 package sk.upjs.gursky.bplustree;
 
+import sk.upjs.gursky.pdb.PersonEntry;
+import sk.upjs.gursky.pdb.PersonStringKey;
+
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
@@ -655,7 +658,53 @@ public class BPTree<K extends BPKey<K>, O extends BPObject<K, O>> implements Ser
         return new ItrForKey(key);
     }
 
-    private class ItrForKey implements Iterator<O> {
+	public List<O> intervalQuery(K low, K high) {
+	   //vnorime sa a mame postupnost listov ktore su navzajom prepojene - vedia o sebe
+		//potrebujeme skakat po šipkach doprava a to čo najdeme potom vracat
+
+		if (! opened) {
+			throw new ManipulationWithClosedTreeException();
+		}
+		BPLeafNode<K,O> leaf = root.findLeafLeft(low);
+		int position = leaf.binarySearch(low);
+		//dostaneme poziciu ktora je kladna alebo zaporna
+		//v uzle mame pole entries, šipku vlavo a vpravo
+		//ak position je kladn atak sme nasli uzol
+		int index = 0;
+		if(position>0){ //ke dje position 0 nasli sme index rvku low, taky kluc tam je
+			//low a high su prvky a moze sa stat ze mame viac rovnakch prvkov tak hladame ten najlavejší
+			while(position> 0 && leaf.entries[position-1].getKey().compareTo(low)==0){
+				position --;
+			}
+			index = position;
+		}
+		if(position<0){//taky prvok low nenašiel, chceme vratit prvy od neho nalavo
+			index = -position-1;
+		}
+		List<O> result = new LinkedList<>();
+		int leafCount = 0;
+		//teraz mame zaciatok listu a chcem citat cez listy kym nenarazim na high kluc
+		while(leaf!=null){
+			if (index == leaf.numberOfEntries) { //ak moj index je pocet zaznamov v tom liste, tak
+				leaf = leaf.getRightNode(); //zapytam pravy uzol
+				index = 0;
+				leafCount++;
+			}
+			if(leaf==null){
+				break; //ked right node je null, uz nemam sa vprav kam posunut
+			}
+			O obj = leaf.entries[index++];
+			if(obj.getKey().compareTo(high)>0){
+				//je vacsi ako prava hranica
+				break;
+			}
+			result.add(obj);
+		}
+		System.out.println("Leafs read: " + leafCount);
+		return result;
+	}
+
+	private class ItrForKey implements Iterator<O> {
    	    BPLeafNode<K,O> leaf; 
    	    int cursor;       // index of next element to return
    	    K key;
